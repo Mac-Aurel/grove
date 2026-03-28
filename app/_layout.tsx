@@ -2,42 +2,47 @@ import React, { useEffect } from 'react';
 import { ActivityIndicator, View, StyleSheet } from 'react-native';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { useSession } from '../hooks/useSession';
+import { useOnboarding } from '../hooks/useOnboarding';
 import { Colors } from '../constants/theme';
 import '../global.css';
 
-function useAuthRedirect(): void {
-  const { session, loading } = useSession();
+function RootLayoutNav(): React.JSX.Element {
+  const { session } = useSession();
+  const { completed: onboardingCompleted } = useOnboarding();
   const segments = useSegments();
   const router = useRouter();
 
   useEffect(() => {
-    if (loading) return;
+    const inOnboarding = segments[0] === '(onboarding)';
+    const inAuth = segments[0] === '(auth)';
+    const inTabs = segments[0] === '(tabs)';
 
-    const inAuthGroup = segments[0] === '(auth)';
+    if (!onboardingCompleted) {
+      if (!inOnboarding) router.replace('/(onboarding)/');
+      return;
+    }
 
-    if (session && inAuthGroup) {
+    if (session && !inTabs) {
       router.replace('/(tabs)/');
-    } else if (!session && !inAuthGroup) {
+    } else if (!session && !inAuth) {
       router.replace('/(auth)/welcome');
     }
-  }, [session, loading, segments]);
-}
-
-function RootLayoutNav(): React.JSX.Element {
-  useAuthRedirect();
+  }, [session, onboardingCompleted, segments]);
 
   return (
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="(tabs)" />
       <Stack.Screen name="(auth)" />
+      <Stack.Screen name="(onboarding)/index" />
     </Stack>
   );
 }
 
 export default function RootLayout(): React.JSX.Element {
-  const { loading } = useSession();
+  const { loading: sessionLoading } = useSession();
+  const { completed: onboardingCompleted } = useOnboarding();
 
-  if (loading) {
+  if (sessionLoading || onboardingCompleted === null) {
     return (
       <View style={styles.loader}>
         <ActivityIndicator size="small" color={Colors.accent} />

@@ -222,7 +222,7 @@ export default function TodayScreen(): React.JSX.Element {
   const { streak } = useStreak();
 
   const sheetRef = useRef<BottomSheet>(null);
-  const inputRef = useRef<{ focus: () => void }>(null);
+  const [sheetIndex, setSheetIndex] = useState<number>(-1);
   const snapPoints = useMemo(() => ['50%'], []);
 
   const [taskTitle, setTaskTitle] = useState<string>('');
@@ -234,6 +234,7 @@ export default function TodayScreen(): React.JSX.Element {
 
   const handleCloseSheet = (): void => {
     sheetRef.current?.close();
+    setSheetIndex(-1);
     setTaskTitle('');
     setIsPublic(false);
   };
@@ -320,18 +321,14 @@ export default function TodayScreen(): React.JSX.Element {
         backdropComponent={renderBackdrop}
         backgroundStyle={s.sheetBg}
         handleIndicatorStyle={s.sheetHandle}
-        onChange={(index) => {
-          if (index === 0) {
-            setTimeout(() => inputRef.current?.focus(), 150);
-          }
-        }}
+        onChange={(index) => setSheetIndex(index)}
         onClose={handleCloseSheet}
       >
         <BottomSheetView style={s.sheetContent}>
           <Text style={s.sheetLabel}>New task</Text>
 
           <BottomSheetTextInput
-            ref={inputRef}
+            autoFocus={sheetIndex === 0}
             style={s.sheetInput}
             placeholder="What do you want to accomplish?"
             placeholderTextColor={Colors.muted}

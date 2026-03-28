@@ -34,7 +34,7 @@ function RootLayoutNav(): React.JSX.Element {
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="(tabs)" />
       <Stack.Screen name="(auth)" />
-      <Stack.Screen name="(onboarding)/index" />
+      <Stack.Screen name="(onboarding)" />
     </Stack>
   );
 }

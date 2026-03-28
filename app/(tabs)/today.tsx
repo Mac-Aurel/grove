@@ -7,7 +7,6 @@ import {
   StyleSheet,
   SafeAreaView,
   Dimensions,
-  TextInput,
   Platform,
 } from 'react-native';
 import Animated, {
@@ -223,7 +222,7 @@ export default function TodayScreen(): React.JSX.Element {
   const { streak } = useStreak();
 
   const sheetRef = useRef<BottomSheet>(null);
-  const inputRef = useRef<TextInput>(null);
+  const inputRef = useRef<React.ElementRef<typeof BottomSheetTextInput>>(null);
   const snapPoints = useMemo(() => ['50%'], []);
 
   const [taskTitle, setTaskTitle] = useState<string>('');

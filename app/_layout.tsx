@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { ActivityIndicator, View, StyleSheet } from 'react-native';
 import { Stack, useRouter, useSegments } from 'expo-router';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useSession } from '../hooks/useSession';
 import { useOnboarding } from '../hooks/useOnboarding';
 import { Colors } from '../constants/theme';
@@ -23,7 +24,7 @@ function RootLayoutNav(): React.JSX.Element {
     }
 
     if (session && !inTabs) {
-      router.replace('/(tabs)/');
+      router.replace('/(tabs)/today');
     } else if (!session && !inAuth) {
       router.replace('/(auth)/welcome');
     }
@@ -50,10 +51,17 @@ export default function RootLayout(): React.JSX.Element {
     );
   }
 
-  return <RootLayoutNav />;
+  return (
+    <GestureHandlerRootView style={styles.root}>
+      <RootLayoutNav />
+    </GestureHandlerRootView>
+  );
 }
 
 const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+  },
   loader: {
     flex: 1,
     backgroundColor: Colors.background,

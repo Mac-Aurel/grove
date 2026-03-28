@@ -24,8 +24,8 @@ import BottomSheet, {
   BottomSheetView,
   BottomSheetTextInput,
   BottomSheetBackdrop,
+  type BottomSheetBackdropProps,
 } from '@gorhom/bottom-sheet';
-import type { BottomSheetBackdropProps } from '@gorhom/bottom-sheet';
 import * as Haptics from 'expo-haptics';
 import {
   Plus,

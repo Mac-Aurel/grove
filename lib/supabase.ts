@@ -1,9 +1,10 @@
 import 'react-native-url-polyfill/auto';
 import { createClient } from '@supabase/supabase-js';
+import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import type { Database } from '../types/database';
 
-const ExpoSecureStoreAdapter = {
+const nativeStorage = {
   getItem: (key: string): Promise<string | null> => {
     return SecureStore.getItemAsync(key);
   },
@@ -15,6 +16,22 @@ const ExpoSecureStoreAdapter = {
   },
 };
 
+const webStorage = {
+  getItem: (key: string): Promise<string | null> => {
+    return Promise.resolve(localStorage.getItem(key));
+  },
+  setItem: (key: string, value: string): Promise<void> => {
+    localStorage.setItem(key, value);
+    return Promise.resolve();
+  },
+  removeItem: (key: string): Promise<void> => {
+    localStorage.removeItem(key);
+    return Promise.resolve();
+  },
+};
+
+const storage = Platform.OS === 'web' ? webStorage : nativeStorage;
+
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 
@@ -24,9 +41,9 @@ if (!supabaseUrl || !supabaseAnonKey) {
 
 export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
   auth: {
-    storage: ExpoSecureStoreAdapter,
+    storage,
     autoRefreshToken: true,
     persistSession: true,
-    detectSessionInUrl: false,
+    detectSessionInUrl: Platform.OS === 'web',
   },
 });

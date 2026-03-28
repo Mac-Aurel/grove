@@ -21,13 +21,17 @@ export default function TabLayout(): React.JSX.Element {
       }}
     >
       <Tabs.Screen
-        name="index"
+        name="today"
         options={{
           title: 'Today',
           tabBarIcon: ({ color, focused }) => (
             <CalendarBlank color={color} size={22} weight={focused ? 'fill' : 'regular'} />
           ),
         }}
+      />
+      <Tabs.Screen
+        name="index"
+        options={{ href: null }}
       />
       <Tabs.Screen
         name="feed"

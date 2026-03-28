@@ -1,7 +1,7 @@
 # Grove — Claude Code Instructions
 
 ## Project
-Daily planning app. Expo SDK 51, iOS first, TypeScript strict, Expo Router v3, NativeWind v4, Supabase.
+Daily planning app. Expo SDK 51, iOS and Android, TypeScript strict, Expo Router v3, NativeWind v4, Supabase.
 
 ## Code rules
 - TypeScript strict — no `any`, no `as`, explicit return types on all functions

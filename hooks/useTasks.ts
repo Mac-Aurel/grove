@@ -3,11 +3,18 @@ import { supabase } from '../lib/supabase';
 import { useSession } from './useSession';
 import type { Task } from '../types/database';
 
+export interface CompleteTaskResult {
+  streakUpdated: boolean;
+  newStreak: number;
+  plantEarned: boolean;
+  plantType: string;
+}
+
 export interface UseTasksResult {
   tasks: Task[];
   loading: boolean;
   addTask: (title: string, isPublic: boolean, date: string) => Promise<void>;
-  completeTask: (id: string, photoUrl?: string) => Promise<void>;
+  completeTask: (id: string, photoUrl?: string) => Promise<CompleteTaskResult | null>;
   refetch: () => Promise<void>;
 }
 
@@ -79,22 +86,26 @@ export function useTasks(scheduledDate: string): UseTasksResult {
     }
   };
 
-  const completeTask = async (id: string, photoUrl?: string): Promise<void> => {
+  const completeTask = async (
+    id: string,
+    photoUrl?: string,
+  ): Promise<CompleteTaskResult | null> => {
     setTasks((prev) => prev.filter((t) => t.id !== id));
 
-    const { error } = await supabase
-      .from('tasks')
-      .update({ is_completed: true, completed_at: new Date().toISOString() })
-      .eq('id', id);
+    const { data, error } = await supabase.functions.invoke('complete-task', {
+      body: {
+        task_id: id,
+        photo_url: photoUrl ?? null,
+        scheduled_date: scheduledDate,
+      },
+    });
 
-    if (!error && photoUrl) {
-      await supabase
-        .from('tasks')
-        .update({ photo_proof_url: photoUrl })
-        .eq('id', id);
+    if (error) {
+      fetch();
+      return null;
     }
 
-    if (error) fetch();
+    return data as CompleteTaskResult;
   };
 
   return { tasks, loading, addTask, completeTask, refetch: fetch };

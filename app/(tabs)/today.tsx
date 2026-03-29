@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -18,6 +18,7 @@ import Animated, {
   withSequence,
   runOnJS,
 } from 'react-native-reanimated';
+import { CelebrationOverlay } from '../../components/CelebrationOverlay';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import BottomSheet, {
   BottomSheetView,
@@ -34,9 +35,11 @@ import {
   Lock,
   Check,
   MoonStars,
+  WarningCircle,
 } from 'phosphor-react-native';
 import { Colors, Radius, Shadow } from '../../constants/theme';
 import { useTasks } from '../../hooks/useTasks';
+import type { CompleteTaskResult } from '../../hooks/useTasks';
 import { useStreak } from '../../hooks/useStreak';
 import { usePhotoUpload } from '../../hooks/usePhotoUpload';
 import { PhotoPickerSheet } from '../../components/PhotoPickerSheet';
@@ -224,6 +227,27 @@ export default function TodayScreen(): React.JSX.Element {
   const { streak } = useStreak();
   const { uploading, compressAndUpload } = usePhotoUpload();
 
+  // Local streak display (updated optimistically on complete)
+  const [displayStreak, setDisplayStreak] = useState<number>(0);
+  const streakScale = useSharedValue(1);
+
+  useEffect(() => {
+    setDisplayStreak(streak?.current_streak ?? 0);
+  }, [streak]);
+
+  // Celebration overlay
+  const [celebrationPlant, setCelebrationPlant] = useState<string | null>(null);
+
+  // At-risk banner
+  const [bannerDismissed, setBannerDismissed] = useState<boolean>(false);
+  const isLateEvening = today.getHours() >= 20;
+  const showAtRiskBanner =
+    isLateEvening && !isPlanningTomorrow && tasks.length > 0 && !bannerDismissed;
+
+  useEffect(() => {
+    setBannerDismissed(false);
+  }, [scheduledDate]);
+
   // Add task sheet
   const addSheetRef = useRef<BottomSheet>(null);
   const [addSheetIndex, setAddSheetIndex] = useState<number>(-1);
@@ -252,6 +276,19 @@ export default function TodayScreen(): React.JSX.Element {
     await addTask(taskTitle.trim(), isPublic, scheduledDate);
   };
 
+  const handleCompleteTaskResult = useCallback((result: CompleteTaskResult): void => {
+    if (result.streakUpdated) {
+      setDisplayStreak(result.newStreak);
+      streakScale.value = withSequence(
+        withTiming(1.4, { duration: 150 }),
+        withSpring(1, { damping: 8, stiffness: 200 }),
+      );
+    }
+    if (result.plantEarned) {
+      setCelebrationPlant(result.plantType);
+    }
+  }, []);
+
   const handleComplete = useCallback((id: string): void => {
     pendingTaskId.current = id;
     photoSheetRef.current?.expand();
@@ -260,31 +297,40 @@ export default function TodayScreen(): React.JSX.Element {
   const handlePhotoSelected = async (uri: string): Promise<void> => {
     const id = pendingTaskId.current;
     if (!id) return;
+    pendingTaskId.current = null;
     photoSheetRef.current?.close();
 
     const photoUrl = await compressAndUpload(uri, id);
-    await completeTask(id, photoUrl ?? undefined);
-    pendingTaskId.current = null;
+    const result = await completeTask(id, photoUrl ?? undefined);
+    if (result) handleCompleteTaskResult(result);
   };
 
   const handleSkipPhoto = async (): Promise<void> => {
     const id = pendingTaskId.current;
     if (!id) return;
-    photoSheetRef.current?.close();
-    await completeTask(id);
     pendingTaskId.current = null;
+    photoSheetRef.current?.close();
+    const result = await completeTask(id);
+    if (result) handleCompleteTaskResult(result);
   };
 
   const handlePhotoSheetClose = (): void => {
     if (pendingTaskId.current) {
-      completeTask(pendingTaskId.current);
+      const id = pendingTaskId.current;
       pendingTaskId.current = null;
+      completeTask(id).then((result) => {
+        if (result) handleCompleteTaskResult(result);
+      });
     }
   };
 
   const handleTogglePlanningDay = (): void => {
     setScheduledDate((prev) => (prev === tomorrowStr ? todayStr : tomorrowStr));
   };
+
+  const streakBadgeStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: streakScale.value }],
+  }));
 
   const renderBackdrop = useCallback(
     (props: BottomSheetBackdropProps) => (
@@ -307,10 +353,10 @@ export default function TodayScreen(): React.JSX.Element {
           <Text style={s.headerTitle}>{displayTitle}</Text>
         </View>
         <View style={s.headerRight}>
-          <View style={s.streakBadge}>
+          <Animated.View style={[s.streakBadge, streakBadgeStyle]}>
             <Fire size={16} color={Colors.accent} weight="regular" />
-            <Text style={s.streakText}>{streak?.current_streak ?? 0}</Text>
-          </View>
+            <Text style={s.streakText}>{displayStreak}</Text>
+          </Animated.View>
           <TouchableOpacity style={s.addButton} onPress={handleOpenAddSheet} activeOpacity={0.7}>
             <Plus size={22} color={Colors.text} weight="regular" />
           </TouchableOpacity>
@@ -323,6 +369,20 @@ export default function TodayScreen(): React.JSX.Element {
           isPlanningTomorrow={isPlanningTomorrow}
           onToggle={handleTogglePlanningDay}
         />
+      )}
+
+      {/* At-risk streak banner */}
+      {showAtRiskBanner && (
+        <TouchableOpacity
+          style={s.atRiskBanner}
+          onPress={() => setBannerDismissed(true)}
+          activeOpacity={0.8}
+        >
+          <WarningCircle size={16} color={Colors.warning} weight="regular" />
+          <Text style={s.atRiskText}>
+            {tasks.length} {tasks.length === 1 ? 'task' : 'tasks'} left — complete them to keep your streak
+          </Text>
+        </TouchableOpacity>
       )}
 
       {/* Task list */}
@@ -410,6 +470,13 @@ export default function TodayScreen(): React.JSX.Element {
         onSkip={handleSkipPhoto}
         onClose={handlePhotoSheetClose}
       />
+
+      {/* Plant earned celebration */}
+      <CelebrationOverlay
+        plantType={celebrationPlant ?? ''}
+        visible={celebrationPlant !== null}
+        onDismiss={() => setCelebrationPlant(null)}
+      />
     </SafeAreaView>
   );
 }
@@ -487,6 +554,23 @@ const s = StyleSheet.create({
     fontFamily: 'Inter',
     fontSize: 13,
     color: Colors.accent,
+    flex: 1,
+  },
+  atRiskBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginHorizontal: 24,
+    marginBottom: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    backgroundColor: Colors.warningBg,
+    borderRadius: Radius.sm,
+  },
+  atRiskText: {
+    fontFamily: 'Inter',
+    fontSize: 13,
+    color: Colors.warningText,
     flex: 1,
   },
   list: {

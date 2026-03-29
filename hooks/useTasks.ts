@@ -7,7 +7,7 @@ export interface UseTasksResult {
   tasks: Task[];
   loading: boolean;
   addTask: (title: string, isPublic: boolean, date: string) => Promise<void>;
-  completeTask: (id: string) => Promise<void>;
+  completeTask: (id: string, photoUrl?: string) => Promise<void>;
   refetch: () => Promise<void>;
 }
 
@@ -79,7 +79,7 @@ export function useTasks(scheduledDate: string): UseTasksResult {
     }
   };
 
-  const completeTask = async (id: string): Promise<void> => {
+  const completeTask = async (id: string, photoUrl?: string): Promise<void> => {
     setTasks((prev) => prev.filter((t) => t.id !== id));
 
     const { error } = await supabase
@@ -87,9 +87,14 @@ export function useTasks(scheduledDate: string): UseTasksResult {
       .update({ is_completed: true, completed_at: new Date().toISOString() })
       .eq('id', id);
 
-    if (error) {
-      fetch();
+    if (!error && photoUrl) {
+      await supabase
+        .from('tasks')
+        .update({ photo_proof_url: photoUrl })
+        .eq('id', id);
     }
+
+    if (error) fetch();
   };
 
   return { tasks, loading, addTask, completeTask, refetch: fetch };

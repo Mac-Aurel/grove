@@ -4,6 +4,9 @@ export const Colors = {
   accent: '#7C9A6E',
   border: '#E8E8E4',
   muted: '#9A9A96',
+  danger: '#C0392B',
+  heatmap1: '#C5D9BB',
+  heatmap2: '#9ABF8A',
 } as const;
 
 export const Typography = {

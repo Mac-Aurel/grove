@@ -144,7 +144,6 @@ export function useFriends(): UseFriendsResult {
       requester_id: user.id,
       addressee_id: userId,
       status: 'pending',
-      nudged_at: null,
     });
   };
 

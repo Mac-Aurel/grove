@@ -396,7 +396,7 @@ const s = StyleSheet.create({
   grid: { flexDirection: 'row', gap: 8 },
   col: { flex: 1 },
   skeletonCell: { backgroundColor: Colors.border, borderRadius: Radius.md },
-  card: { borderRadius: Radius.md, overflow: 'hidden', ...Shadow.card },
+  card: { borderRadius: Radius.md, overflow: 'hidden', backgroundColor: '#FFFFFF', ...Shadow.card },
   cardPhoto: { width: '100%', height: '100%' },
   cardOverlay: {
     ...StyleSheet.absoluteFillObject,

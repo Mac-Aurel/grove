@@ -38,6 +38,8 @@ import {
 import { Colors, Radius, Shadow } from '../../constants/theme';
 import { useTasks } from '../../hooks/useTasks';
 import { useStreak } from '../../hooks/useStreak';
+import { usePhotoUpload } from '../../hooks/usePhotoUpload';
+import { PhotoPickerSheet } from '../../components/PhotoPickerSheet';
 import type { Task } from '../../types/database';
 
 const { width: SW } = Dimensions.get('window');
@@ -220,34 +222,65 @@ export default function TodayScreen(): React.JSX.Element {
 
   const { tasks, loading, addTask, completeTask } = useTasks(scheduledDate);
   const { streak } = useStreak();
+  const { uploading, compressAndUpload } = usePhotoUpload();
 
-  const sheetRef = useRef<BottomSheet>(null);
-  const [sheetIndex, setSheetIndex] = useState<number>(-1);
+  // Add task sheet
+  const addSheetRef = useRef<BottomSheet>(null);
+  const [addSheetIndex, setAddSheetIndex] = useState<number>(-1);
   const snapPoints = useMemo(() => ['50%'], []);
-
   const [taskTitle, setTaskTitle] = useState<string>('');
   const [isPublic, setIsPublic] = useState<boolean>(false);
 
-  const handleOpenSheet = (): void => {
-    sheetRef.current?.expand();
+  // Photo picker sheet
+  const photoSheetRef = useRef<BottomSheet>(null);
+  const pendingTaskId = useRef<string | null>(null);
+
+  const handleOpenAddSheet = (): void => {
+    addSheetRef.current?.expand();
   };
 
-  const handleCloseSheet = (): void => {
-    sheetRef.current?.close();
-    setSheetIndex(-1);
+  const handleCloseAddSheet = (): void => {
+    addSheetRef.current?.close();
+    setAddSheetIndex(-1);
     setTaskTitle('');
     setIsPublic(false);
   };
 
   const handleAddTask = async (): Promise<void> => {
     if (!taskTitle.trim()) return;
-    handleCloseSheet();
+    handleCloseAddSheet();
     await addTask(taskTitle.trim(), isPublic, scheduledDate);
   };
 
   const handleComplete = useCallback((id: string): void => {
-    completeTask(id);
-  }, [completeTask]);
+    pendingTaskId.current = id;
+    photoSheetRef.current?.expand();
+  }, []);
+
+  const handlePhotoSelected = async (uri: string): Promise<void> => {
+    const id = pendingTaskId.current;
+    if (!id) return;
+    photoSheetRef.current?.close();
+
+    const photoUrl = await compressAndUpload(uri, id);
+    await completeTask(id, photoUrl ?? undefined);
+    pendingTaskId.current = null;
+  };
+
+  const handleSkipPhoto = async (): Promise<void> => {
+    const id = pendingTaskId.current;
+    if (!id) return;
+    photoSheetRef.current?.close();
+    await completeTask(id);
+    pendingTaskId.current = null;
+  };
+
+  const handlePhotoSheetClose = (): void => {
+    if (pendingTaskId.current) {
+      completeTask(pendingTaskId.current);
+      pendingTaskId.current = null;
+    }
+  };
 
   const handleTogglePlanningDay = (): void => {
     setScheduledDate((prev) => (prev === tomorrowStr ? todayStr : tomorrowStr));
@@ -278,7 +311,7 @@ export default function TodayScreen(): React.JSX.Element {
             <Fire size={16} color={Colors.accent} weight="regular" />
             <Text style={s.streakText}>{streak?.current_streak ?? 0}</Text>
           </View>
-          <TouchableOpacity style={s.addButton} onPress={handleOpenSheet} activeOpacity={0.7}>
+          <TouchableOpacity style={s.addButton} onPress={handleOpenAddSheet} activeOpacity={0.7}>
             <Plus size={22} color={Colors.text} weight="regular" />
           </TouchableOpacity>
         </View>
@@ -312,23 +345,23 @@ export default function TodayScreen(): React.JSX.Element {
         />
       )}
 
-      {/* Add task bottom sheet */}
+      {/* Add task sheet */}
       <BottomSheet
-        ref={sheetRef}
+        ref={addSheetRef}
         index={-1}
         snapPoints={snapPoints}
         enablePanDownToClose
         backdropComponent={renderBackdrop}
         backgroundStyle={s.sheetBg}
         handleIndicatorStyle={s.sheetHandle}
-        onChange={(index) => setSheetIndex(index)}
-        onClose={handleCloseSheet}
+        onChange={(index) => setAddSheetIndex(index)}
+        onClose={handleCloseAddSheet}
       >
         <BottomSheetView style={s.sheetContent}>
           <Text style={s.sheetLabel}>New task</Text>
 
           <BottomSheetTextInput
-            autoFocus={sheetIndex === 0}
+            autoFocus={addSheetIndex === 0}
             style={s.sheetInput}
             placeholder="What do you want to accomplish?"
             placeholderTextColor={Colors.muted}
@@ -368,6 +401,15 @@ export default function TodayScreen(): React.JSX.Element {
           </TouchableOpacity>
         </BottomSheetView>
       </BottomSheet>
+
+      {/* Photo proof sheet */}
+      <PhotoPickerSheet
+        sheetRef={photoSheetRef}
+        uploading={uploading}
+        onPhotoSelected={handlePhotoSelected}
+        onSkip={handleSkipPhoto}
+        onClose={handlePhotoSheetClose}
+      />
     </SafeAreaView>
   );
 }
@@ -379,8 +421,6 @@ const s = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.background,
   },
-
-  // Header
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -432,8 +472,6 @@ const s = StyleSheet.create({
     borderColor: Colors.border,
     backgroundColor: '#FFFFFF',
   },
-
-  // Planning banner
   banner: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -451,8 +489,6 @@ const s = StyleSheet.create({
     color: Colors.accent,
     flex: 1,
   },
-
-  // Task list
   list: {
     paddingHorizontal: 24,
     paddingTop: 4,
@@ -460,8 +496,6 @@ const s = StyleSheet.create({
     gap: 10,
     flexGrow: 1,
   },
-
-  // Skeleton
   skeletonCard: {
     height: 56,
     backgroundColor: '#FFFFFF',
@@ -476,8 +510,6 @@ const s = StyleSheet.create({
     backgroundColor: Colors.border,
     borderRadius: 4,
   },
-
-  // Empty state
   empty: {
     flex: 1,
     alignItems: 'center',
@@ -491,8 +523,6 @@ const s = StyleSheet.create({
     color: Colors.muted,
     textAlign: 'center',
   },
-
-  // Task card
   taskWrapper: {
     position: 'relative',
   },
@@ -522,15 +552,8 @@ const s = StyleSheet.create({
     flex: 1,
     marginRight: 8,
   },
-
-  // Bottom sheet
-  sheetBg: {
-    backgroundColor: '#FFFFFF',
-  },
-  sheetHandle: {
-    backgroundColor: Colors.border,
-    width: 36,
-  },
+  sheetBg: { backgroundColor: '#FFFFFF' },
+  sheetHandle: { backgroundColor: Colors.border, width: 36 },
   sheetContent: {
     flex: 1,
     paddingHorizontal: 24,
@@ -588,9 +611,7 @@ const s = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  addBtnDisabled: {
-    opacity: 0.4,
-  },
+  addBtnDisabled: { opacity: 0.4 },
   addBtnText: {
     fontFamily: 'Inter',
     fontSize: 15,

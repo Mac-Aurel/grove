@@ -19,7 +19,7 @@ function RootLayoutNav(): React.JSX.Element {
     const inTabs = segments[0] === '(tabs)';
 
     if (!onboardingCompleted) {
-      if (!inOnboarding) router.replace('/(onboarding)/');
+      if (!inOnboarding) router.replace('/(onboarding)' as never);
       return;
     }
 

@@ -119,7 +119,7 @@ function TaskCard({ task, onComplete }: TaskCardProps): React.JSX.Element {
   const cardScale = useSharedValue(1);
 
   const triggerHaptic = (): void => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
   };
 
   const startComplete = (): void => {
